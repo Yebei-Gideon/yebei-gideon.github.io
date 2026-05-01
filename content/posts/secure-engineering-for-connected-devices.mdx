@@ -1,0 +1,80 @@
+---
+title: "Secure Engineering for Connected Devices"
+slug: "secure-engineering-for-connected-devices"
+description: "Secure coding habits, transport security, update integrity, and threat modeling for IoT and embedded products."
+date: "2025-01-29"
+author: "Gideon Yebei"
+tags: ["Security", "IoT", "Embedded Systems", "Architecture"]
+category: "Security"
+featured: true
+draft: false
+---
+
+Connected devices have an awkward security profile: they're cheap, deployed in hostile environments, hard to update, and live for a decade. That's an attacker's dream — unless you take security seriously from the design stage.
+
+## Secure coding habits
+
+The basics, applied without exception:
+
+- **Validate every input** that crosses a trust boundary — radio, serial, file system.
+- **Bounds-check every buffer**. Most embedded CVEs are still buffer overruns.
+- **Fail closed**. If a check is ambiguous, deny.
+- **Zero secrets after use**. Don't leave keys in RAM.
+- **Use constant-time comparisons** for tokens and MACs.
+
+```c
+// vulnerable: short-circuit timing leak
+if (memcmp(token, expected, len) == 0) { /* ... */ }
+
+// better
+if (constant_time_equals(token, expected, len)) { /* ... */ }
+```
+
+## Common risks in embedded and IoT
+
+| Risk                                | Mitigation                                        |
+| ----------------------------------- | ------------------------------------------------- |
+| Hardcoded credentials               | Per-device keys provisioned at manufacturing      |
+| Plaintext radio                     | TLS / DTLS, always                                |
+| Unsigned firmware updates           | Signature + version check (see [FOTA](/blog/fota-done-right)) |
+| Debug interfaces left enabled       | Disable JTAG / UART console in production builds  |
+| Long-lived static keys              | Rotation, short-lived session keys                |
+| Predictable device IDs              | Random, server-issued IDs                         |
+
+## Authentication
+
+Per-device identity is non-negotiable. Options, in order of strength:
+
+1. **Pre-shared key** — simple, but a single compromise leaks everything.
+2. **Per-device certificate** — provisioned at manufacturing, mTLS to the broker/API.
+3. **Secure element / TPM** — private key never leaves hardware. The gold standard.
+
+Use mTLS for device→cloud. The broker authenticates the device by certificate; ACLs restrict what topics it can touch.
+
+## Transport security
+
+- TLS 1.2+ minimum. Pin the server certificate.
+- Disable downgrade paths.
+- Reject self-signed CAs in production firmware (yes, even "just for the field test").
+- Renew certificates before they expire. A device with an expired cert is a device that can't phone home.
+
+## Update integrity
+
+Already covered, but worth repeating: signed firmware, version pinning, rollback protection, monitored rollouts. An attacker who can replace your firmware owns the device forever.
+
+## Threat modeling basics
+
+Before writing code, ask:
+
+1. **What are we protecting?** (Customer data, device control, brand reputation.)
+2. **From whom?** (Curious user, motivated attacker, nation-state.)
+3. **How could they get in?** (Network, physical access, supply chain, insider.)
+4. **What's the blast radius?** (One device, one customer, the whole fleet.)
+
+Sketch a STRIDE table per component. The exercise itself surfaces 80% of the issues.
+
+## Summary
+
+Security for connected devices is a discipline, not a feature. Bake it in from the schematic up: signed firmware, per-device identity, encrypted transport, no debug ports in production, and a clear plan for the day a key leaks. The cost of getting it right is small. The cost of getting it wrong is your product.
+
+Related: [FOTA Done Right](/blog/fota-done-right), [Designing Reliable IoT Systems](/blog/designing-reliable-iot-systems).

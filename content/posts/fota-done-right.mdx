@@ -1,0 +1,91 @@
+---
+title: "FOTA: Firmware Over-The-Air Updates Done Right"
+slug: "fota-done-right"
+description: "A field guide to safe, atomic, signed firmware updates — and how to avoid bricking the fleet."
+date: "2025-02-26"
+author: "Gideon Yebei"
+tags: ["FOTA", "Firmware", "Embedded Systems", "Security"]
+category: "Embedded Systems"
+featured: true
+draft: false
+---
+
+Sooner or later, every connected device will need an update. Maybe it's a security patch. Maybe it's a feature. Maybe it's the bug you missed in production. Doing this safely — without bricking devices in the field — is what FOTA (Firmware Over-The-Air) is about.
+
+## What FOTA is
+
+FOTA delivers a new firmware image to a device over the network and swaps it in atomically. "Atomically" is the important word: at no point should a power cut or a bad image leave a device unbootable.
+
+## Why it matters
+
+- **Security patches** can't wait for a truck roll.
+- **Bug fixes** at fleet scale are otherwise impossibly expensive.
+- **Feature evolution** keeps products competitive long after shipment.
+
+Without FOTA, you ship hardware that ages badly. With FOTA, the same hardware quietly improves for years.
+
+## The non-negotiables
+
+### 1. Dual-bank flash with rollback
+
+Reserve two slots: the **active** image and an **inactive** slot for the new one. Flow:
+
+1. Download new image into inactive slot.
+2. Verify size + checksum + signature.
+3. Mark inactive as "boot next, on probation".
+4. Reboot.
+5. New image must signal "I'm healthy" within N seconds, or the bootloader rolls back.
+
+ESP-IDF gives you this with `esp_ota_*` and the OTA data partition. Zephyr has MCUboot. Use them — don't roll your own.
+
+### 2. Cryptographic signatures
+
+Every image must be signed with a private key the device cannot access. The device only holds the **public** key, embedded at manufacturing. Verify signature before swap, every time. No exceptions.
+
+```c
+if (!verify_signature(image, sig, public_key)) {
+    abort_update("bad signature");
+}
+```
+
+### 3. Version control
+
+Embed a monotonic version number. Refuse downgrades unless explicitly allowed (and signed). Otherwise an attacker just replays an old, vulnerable image.
+
+### 4. Resumable, chunked downloads
+
+Devices on cellular or flaky Wi-Fi will lose connection. Download in chunks, store progress, resume. HTTPS with `Range` headers works well.
+
+### 5. Staged rollouts
+
+Never ship to 100% of the fleet on day one. A typical schedule:
+
+- Day 0: 1% canary
+- Day 2: 10%
+- Day 5: 50%
+- Day 7: 100%
+
+Bake in a kill switch on the server side.
+
+## Security considerations
+
+- TLS for transport, signatures for content. Both, always.
+- Rotate signing keys periodically; use a hardware HSM for the private key.
+- Devices should pin the update server certificate.
+- Log every update attempt with device ID, version, and outcome.
+
+## Common failure modes
+
+| Failure                        | Mitigation                              |
+| ------------------------------ | --------------------------------------- |
+| Power cut mid-flash            | Dual-bank + atomic boot pointer swap    |
+| Corrupted download             | Checksum + signature verification       |
+| New image hangs at boot        | Watchdog + rollback to previous slot    |
+| Out-of-space on flash          | Pre-flight free-space check             |
+| Server compromised             | Signed images mean signed images        |
+
+## Summary
+
+FOTA is one of those features that looks simple in a slide and has a hundred ways to bite you in production. Get the bootloader right, sign everything, roll out gradually, and assume the network will fail at the worst possible moment. Devices that update safely are devices that survive.
+
+Related: [Docker for Embedded and IoT Development](/blog/docker-for-embedded-and-iot), [Designing Reliable IoT Systems](/blog/designing-reliable-iot-systems).

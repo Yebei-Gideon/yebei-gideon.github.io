@@ -1,0 +1,85 @@
+---
+title: "MQTT Explained for IoT Systems"
+slug: "mqtt-explained-for-iot"
+description: "A practical tour of MQTT — the publish/subscribe protocol that keeps modern IoT fleets talking."
+date: "2025-03-05"
+author: "Gideon Yebei"
+tags: ["MQTT", "IoT", "Architecture"]
+category: "IoT"
+featured: true
+draft: false
+---
+
+If your devices need to talk to a backend, talk to each other, or send telemetry every few seconds without melting the network, you'll likely end up at MQTT. It's small, battle-tested, and designed for the constrained, lossy networks that real IoT devices live on.
+
+## What MQTT actually is
+
+MQTT is a lightweight **publish/subscribe** messaging protocol over TCP (or WebSockets). Devices don't call each other directly — they send messages to **topics** on a central **broker**, and the broker fans them out to everyone subscribed.
+
+```
+device/12/temperature  →  broker  →  dashboard
+                                  →  alerting service
+                                  →  data warehouse
+```
+
+Three roles, that's it: **publisher**, **subscriber**, **broker**.
+
+## The publish/subscribe model
+
+Direct request/response is great for browsers but terrible for thousands of intermittent devices. Pub/sub gives you:
+
+- **Decoupling** — publishers don't know who listens.
+- **Fan-out** — one message can reach many consumers.
+- **Buffering** — late subscribers can still get messages with retained flags or persistent sessions.
+
+Topics are hierarchical, slash-delimited, and wildcardable:
+
+```
+sensors/+/temperature      # one level: sensors/3/temperature ✓, sensors/3/eu/temp ✗
+sensors/#                  # all levels: sensors/3/eu/temp ✓
+```
+
+## Quality of Service (QoS) levels
+
+| QoS | Guarantee                | Use it for                        |
+| --- | ------------------------ | --------------------------------- |
+| 0   | At most once (fire/forget)| High-frequency telemetry          |
+| 1   | At least once            | Commands, important events        |
+| 2   | Exactly once (4-way)     | Billing, irreversible actions     |
+
+QoS 2 is expensive. Most production fleets ship QoS 0 telemetry and QoS 1 commands.
+
+## A minimal broker setup
+
+Mosquitto is the easiest place to start:
+
+```bash
+docker run -it --rm -p 1883:1883 eclipse-mosquitto:2
+```
+
+Subscribe in one terminal, publish in another:
+
+```bash
+mosquitto_sub -h localhost -t 'sensors/#' -v
+mosquitto_pub -h localhost -t 'sensors/3/temperature' -m '22.4'
+```
+
+## Design patterns that actually work
+
+- **`devices/{id}/telemetry`** for sensor data going up.
+- **`devices/{id}/commands`** for commands going down.
+- **`devices/{id}/status`** with a **Last Will and Testament** so the broker announces when a device drops offline.
+- Use **retained messages** for the "last known state" of slow-changing values like configuration.
+
+## Security checklist
+
+1. TLS on port `8883` — never run plaintext in production.
+2. Per-device credentials, not a shared password.
+3. ACLs that restrict each device to its own topic prefix.
+4. Bridge brokers across regions instead of exposing one to the world.
+
+See [Secure Engineering for Connected Devices](/blog/secure-engineering-for-connected-devices) for a deeper look.
+
+## Summary
+
+MQTT is small, fast, and resilient — exactly the qualities you want when you can't trust the network. Start with a single broker, design your topic hierarchy carefully, and tighten security before anyone else gets to. From there, it scales surprisingly far.

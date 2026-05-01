@@ -1,0 +1,93 @@
+---
+title: "Building a Modular Firmware Codebase"
+slug: "modular-firmware-codebase"
+description: "Separate hardware, business logic, and transport so your firmware survives chip swaps, protocol changes, and the test of time."
+date: "2025-01-22"
+author: "Gideon Yebei"
+tags: ["Firmware", "Architecture", "Embedded Systems", "C"]
+category: "Embedded Systems"
+featured: false
+draft: false
+---
+
+The first version of any firmware is a single `main.c` doing everything. The second version, written six months later in anger, is what we want to start with.
+
+## The three layers
+
+A firmware codebase that ages well separates:
+
+1. **Hardware abstraction (HAL)** — registers, GPIO, peripherals, chip-specific drivers.
+2. **Business logic** — what the device *does*: state machines, calibration, decisions.
+3. **Transport** — how it talks to the world: MQTT, BLE, serial protocols.
+
+Layer 2 should compile and run on your laptop. That's the test. If business logic depends on a header from `esp32/`, the boundary is leaking.
+
+## Folder layout
+
+```
+my_device/
+├── main/
+│   └── main.c                  # init + task spawn, that's it
+├── components/
+│   ├── hal/                    # chip-specific
+│   │   ├── gpio.c
+│   │   └── i2c.c
+│   ├── drivers/
+│   │   ├── bme280.c            # uses hal/, exposes sensor_read()
+│   │   └── ssd1306.c
+│   ├── core/                   # business logic, host-testable
+│   │   ├── calibration.c
+│   │   ├── scheduler.c
+│   │   └── state_machine.c
+│   ├── transport/
+│   │   ├── mqtt.c
+│   │   └── ble.c
+│   └── app/                    # glue: wires core ↔ transport
+│       └── app.c
+└── tests/                      # runs on host CI
+```
+
+## Reusable components
+
+Each component has:
+
+- A small public header in `include/`.
+- An implementation file.
+- Its own `CMakeLists.txt` declaring dependencies.
+- Optionally, a host-side test.
+
+Components depend **inward**, never outward. `core/` knows nothing about `transport/`.
+
+## A concrete example
+
+```c
+// core/scheduler.h
+typedef struct {
+    uint32_t telemetry_interval_ms;
+    uint32_t heartbeat_interval_ms;
+} scheduler_config_t;
+
+void scheduler_init(const scheduler_config_t *cfg);
+void scheduler_tick(uint32_t now_ms);
+
+// core/scheduler.c — pure logic, no FreeRTOS, no ESP-IDF
+```
+
+You can unit-test `scheduler_tick` on your laptop by feeding it timestamps. You can swap from FreeRTOS to Zephyr without touching it. You can run it under fuzz testing.
+
+## Testing and future maintenance
+
+Host-side tests run in seconds, in CI, on every push. They catch:
+
+- State machine bugs
+- Calibration math errors
+- Off-by-one telemetry intervals
+- Edge cases in retry logic
+
+Hardware-in-the-loop tests are slower and more fragile, so reserve them for what truly needs the chip: peripheral drivers, RF behavior, power consumption.
+
+## Summary
+
+Modular firmware is the difference between "we'll rewrite it next year" and "we shipped a new sensor variant in two days." Draw the layer boundaries early, keep `main` thin, and make business logic testable on your laptop. The hardware will change. The architecture shouldn't.
+
+Related: [Writing Clean C and C++ for Embedded Systems](/blog/clean-c-cpp-for-embedded), [Firmware Workflow for ESP32](/blog/firmware-workflow-esp32-esp8266).

@@ -1,0 +1,70 @@
+---
+title: "Lessons Learned from Real-World Integration Work"
+slug: "lessons-from-integration-work"
+description: "What years of stitching systems together — WordPress, Shopify, custom backends, IoT brokers — actually teach you."
+date: "2025-01-15"
+author: "Gideon Yebei"
+tags: ["Architecture", "APIs", "DevOps"]
+category: "Engineering"
+featured: false
+draft: false
+---
+
+Integration work has a bad reputation — "just plumbing." In practice it's where most projects either ship or die. Here's what I've taken away from doing a lot of it.
+
+## Read the docs, then read the responses
+
+Vendor docs lie. Not maliciously, just out of date. Always log the actual request and response while building. Half the time the field is named differently than the docs say, or the error code that means "rate-limited" is actually `429` *and* `503` *and* sometimes a `200` with an error body.
+
+## Treat every external system as hostile
+
+External APIs go down. They return malformed JSON. They time out at the worst possible moment. Defensive code:
+
+- **Timeouts on every call.** Default Node `fetch` has none — set one.
+- **Retries with exponential backoff and jitter.** Not a tight loop.
+- **Circuit breakers** when failures spike, so you don't take yourself down trying to reach a dead service.
+- **Idempotency keys** on writes, so a retry doesn't double-charge a customer.
+
+```ts
+const res = await fetch(url, {
+  signal: AbortSignal.timeout(5000),
+  headers: { "Idempotency-Key": requestId },
+});
+```
+
+## Common pitfalls
+
+| Pitfall                              | What I do now                                  |
+| ------------------------------------ | ---------------------------------------------- |
+| Polling instead of webhooks          | Webhooks first, polling as fallback            |
+| Trusting webhook payloads            | Verify signatures, refetch from source of truth |
+| Silent retries hiding real bugs      | Log every retry with reason and attempt number |
+| Storing IDs as numbers               | Strings. Always strings.                       |
+| Time zones                           | UTC at the boundary, convert at the edge       |
+| Pagination assumptions               | Don't assume `total` exists; iterate till empty |
+
+## Debugging approach
+
+When an integration breaks at 2am:
+
+1. **Reproduce with `curl`** — strip away your code first.
+2. **Check the request, not just the response** — wrong header is a common culprit.
+3. **Compare to a known-good request** from yesterday's logs.
+4. **Look at their status page** before assuming it's you.
+5. **Capture the failing payload** for a regression test once you fix it.
+
+## Delivery mindset
+
+Integration projects don't end at "happy path works." They end at:
+
+- Retry behavior is sane.
+- Failures are observable in your dashboard.
+- The on-call runbook says what to do when the third party is down.
+- Secrets rotate without redeploys.
+- You can replay yesterday's events into a staging environment.
+
+The features take a week. The robustness takes another two. Budget for both, and clients (and your future self) will be much happier.
+
+## Summary
+
+Good integration work is mostly humility — assuming the network, the vendor, and your own code are all going to fail. Build for that, instrument it well, and you end up with systems that quietly hum along while teammates wonder why their projects are always on fire.

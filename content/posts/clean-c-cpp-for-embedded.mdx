@@ -1,0 +1,90 @@
+---
+title: "Writing Clean C and C++ for Embedded Systems"
+slug: "clean-c-cpp-for-embedded"
+description: "Readable, safe, maintainable embedded code — without sacrificing the performance the hardware demands."
+date: "2025-02-12"
+author: "Gideon Yebei"
+tags: ["C", "C++", "Embedded Systems", "Architecture"]
+category: "Embedded Systems"
+featured: false
+draft: false
+---
+
+Embedded code has a reputation for being terse, clever, and unmaintainable. It doesn't have to be. You can write firmware that's both fast and pleasant to read six months later.
+
+## Readability first
+
+The compiler optimizes; you communicate. Pick names that explain intent:
+
+```c
+// bad
+uint8_t b = r & 0x1F;
+
+// good
+const uint8_t channel_index = raw_register & CHANNEL_MASK;
+```
+
+Magic numbers belong in `#define` or `constexpr` constants. Bit fiddling belongs behind a function with a verb in its name.
+
+## Memory safety awareness
+
+You don't get a borrow checker. You do get discipline:
+
+- Prefer **fixed-size buffers** over dynamic allocation in long-running tasks.
+- If you must `malloc`, do it at startup and never free.
+- Always pair buffer pointers with their length. `void send(const uint8_t *buf, size_t len)` — never bare pointers.
+- Use `static_assert` to catch struct-size assumptions at compile time.
+
+```c
+static_assert(sizeof(packet_t) == 16, "wire format changed");
+```
+
+## Embedded anti-patterns to avoid
+
+| Anti-pattern                          | Replacement                                   |
+| ------------------------------------- | --------------------------------------------- |
+| Giant `main()` doing everything       | Initialize in `main`, run in tasks            |
+| Polling in tight loops                | Interrupts + queues                           |
+| Global mutable state                  | Pass a context struct                         |
+| `delay()` for synchronization         | Semaphores, event groups, timers              |
+| Hardcoded GPIO numbers across files   | A single board-config header                  |
+
+## Driver structure
+
+Treat drivers as small modules with a clear contract:
+
+```c
+// sensor.h
+typedef struct sensor_handle sensor_handle_t;
+
+sensor_handle_t *sensor_init(const sensor_config_t *cfg);
+int  sensor_read(sensor_handle_t *h, sensor_sample_t *out);
+void sensor_deinit(sensor_handle_t *h);
+```
+
+The header is the API. Implementation, registers, and bit twiddling stay in `sensor.c`. You can swap the chip without touching callers.
+
+## Reusable modules
+
+Separate three layers:
+
+1. **Hardware abstraction** — registers, GPIO, peripherals.
+2. **Domain logic** — calibration, state machines, decisions.
+3. **Transport** — MQTT, BLE, serial.
+
+Domain logic must compile and run on your laptop. That's how you write tests.
+
+## C++ where it helps
+
+You don't need full STL on a microcontroller, but a few features are pure win:
+
+- `enum class` for type-safe enumerations.
+- `constexpr` for compile-time math.
+- RAII for peripheral handles (acquire in constructor, release in destructor).
+- `std::array<T, N>` instead of bare C arrays — same code size, real type info.
+
+Avoid heap-heavy STL (`std::string`, `std::vector` in hot paths, exceptions). Measure if unsure.
+
+## Summary
+
+Clean embedded code is mostly about discipline: small modules, named constants, paired pointers and lengths, layered architecture. The hardware doesn't care, but the human reading your code at 2am during an outage absolutely does.

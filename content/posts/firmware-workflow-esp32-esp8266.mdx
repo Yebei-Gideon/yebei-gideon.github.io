@@ -1,0 +1,90 @@
+---
+title: "Firmware Development Workflow for ESP32 and ESP8266"
+slug: "firmware-workflow-esp32-esp8266"
+description: "Project setup, build, flash, debug, and CI for ESP-IDF and Arduino-based ESP projects."
+date: "2025-02-19"
+author: "Gideon Yebei"
+tags: ["ESP32", "ESP8266", "Firmware", "Embedded Systems", "DevOps"]
+category: "Embedded Systems"
+featured: false
+draft: false
+---
+
+ESP32 and ESP8266 dominate hobbyist and a surprising amount of professional IoT work — they're cheap, have Wi-Fi and BLE on chip, and the toolchain is mature. Here's the workflow I keep coming back to.
+
+## Project setup
+
+For anything beyond a quick prototype, **ESP-IDF** beats Arduino. You get FreeRTOS, proper partitioning, OTA support, and a real CMake build. Start with the official template:
+
+```bash
+idf.py create-project my_device
+cd my_device
+idf.py set-target esp32
+idf.py menuconfig
+```
+
+Pin your IDF version in a `.gitignore`d submodule or — better — in a Docker image (see [Docker for Embedded and IoT](/blog/docker-for-embedded-and-iot)).
+
+## Build and flash
+
+```bash
+idf.py build
+idf.py -p /dev/ttyUSB0 flash monitor
+```
+
+`monitor` is the unsung hero — it decodes panic stack traces against the ELF so you get readable backtraces instead of hex addresses.
+
+## Modular firmware structure
+
+Keep `main/` thin. Push logic into `components/`:
+
+```
+my_device/
+├── main/
+│   └── main.c              # boot, init, task spawn
+├── components/
+│   ├── net/                # Wi-Fi, MQTT
+│   ├── sensors/            # I2C drivers, calibration
+│   ├── storage/            # NVS, SPIFFS helpers
+│   └── ota/                # OTA orchestration
+└── partitions.csv
+```
+
+Each component has its own `CMakeLists.txt` and can be unit-tested on the host.
+
+## Debugging
+
+Three tools, in increasing order of pain:
+
+1. **`ESP_LOGI/W/E`** — fast, structured, filterable per tag.
+2. **JTAG with OpenOCD** — proper breakpoints, real debugging. Worth the cable.
+3. **Core dumps** — enable in menuconfig; decode with `espcoredump.py` after a crash.
+
+## CI-friendly testing
+
+You can't easily run a real ESP32 in CI, but you can:
+
+- Compile in CI (in the same Docker image developers use).
+- Run **host-side unit tests** for pure-C logic with `unity` or `ceedling`.
+- Use **QEMU for ESP32** (now official) for smoke tests.
+- Lint with `clang-tidy` and `cppcheck`.
+
+A minimal GitHub Actions job:
+
+```yaml
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.2.1
+    steps:
+      - uses: actions/checkout@v4
+      - run: . /opt/esp/idf/export.sh && idf.py build
+```
+
+## Release flow
+
+Tag the repo, CI builds the image, signs it, and uploads it to the FOTA server. Devices pick it up on their next check-in. See [FOTA Done Right](/blog/fota-done-right) for the safety mechanics.
+
+## Summary
+
+A boring, repeatable workflow is the goal: containerized toolchain, modular components, CI builds on every push, signed releases for the fleet. Once it's in place, you stop fighting the build and start shipping firmware.

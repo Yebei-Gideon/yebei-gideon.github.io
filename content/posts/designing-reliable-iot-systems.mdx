@@ -1,0 +1,70 @@
+---
+title: "Designing Reliable IoT Systems"
+slug: "designing-reliable-iot-systems"
+description: "Communication, data flow, offline resilience, observability, and updates — the architecture that keeps fleets healthy."
+date: "2025-02-05"
+author: "Gideon Yebei"
+tags: ["IoT", "Architecture", "FOTA", "MQTT"]
+category: "IoT"
+featured: false
+draft: false
+---
+
+A reliable IoT system isn't one device working perfectly — it's a thousand devices working acceptably while you sleep. The architecture decisions that get you there are made early.
+
+## Communication
+
+Pick one primary channel and design around its failure modes:
+
+- **MQTT** — great default. Lightweight, pub/sub, works on flaky links. See [MQTT Explained](/blog/mqtt-explained-for-iot).
+- **HTTPS long-poll** — when corporate firewalls hate everything else.
+- **CoAP / LoRaWAN** — for ultra-low-power constrained devices.
+
+Whatever you choose: assume the connection drops. Design for it.
+
+## Data flow
+
+A clean pipeline has three stages:
+
+```
+device  →  ingest  →  process  →  storage  →  consumers
+```
+
+- **Ingest** is dumb and fast: validate shape, write raw payload, ack.
+- **Process** is async: enrich, transform, alert, downsample.
+- **Storage** is tiered: hot (last 7 days), warm (90 days), cold (S3/Glacier).
+- **Consumers** read from materialized views, never raw ingest.
+
+This separation lets you redeploy processing without losing data and lets you replay the past against new logic.
+
+## Offline resilience
+
+Devices will lose connectivity. The good ones don't lose data:
+
+- Buffer telemetry locally (ring buffer in flash).
+- Backoff with jitter on reconnect — don't thunder-herd the broker after an outage.
+- Sync time from the network, but trust a local RTC for timestamps.
+- Apply commands idempotently, with a server-issued request ID.
+
+## Observability
+
+You can't fix what you can't see. At minimum, every device reports:
+
+| Metric              | Why                                       |
+| ------------------- | ----------------------------------------- |
+| Firmware version    | "Is this device on the latest patch?"     |
+| Uptime              | Spotting reboot loops                     |
+| Free heap / stack   | Memory leaks                              |
+| Wi-Fi RSSI          | Field deployment quality                  |
+| Last error code     | Faster triage                             |
+| OTA status          | Rollout health                            |
+
+Dashboards on these turn outages from "users complain" to "we fixed it before they noticed".
+
+## Secure updates
+
+Already covered in depth in [FOTA Done Right](/blog/fota-done-right) — but the headline: signed images, dual-bank flash, staged rollouts, automatic rollback. Treat every update as a potential incident.
+
+## Summary
+
+Reliable IoT is mostly defensive engineering: assume the network fails, the device crashes, and the update bricks something. Design for those, instrument everything, and roll out changes carefully. Done right, the system gets quietly more reliable every quarter — which is exactly what you want.

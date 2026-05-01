@@ -1,0 +1,88 @@
+---
+title: "Notes on Backend Tooling for Engineers"
+slug: "notes-on-backend-tooling"
+description: "Bun, Node.js, Hono, NestJS, PostgreSQL, Prisma, Docker — a working engineer's take on a modern backend stack."
+date: "2025-01-08"
+author: "Gideon Yebei"
+tags: ["APIs", "DevOps", "Architecture", "Docker"]
+category: "Engineering"
+featured: false
+draft: false
+---
+
+A few quick, opinionated notes on the backend stack I keep reaching for in 2025. Not a tutorial — more a "why these, when these, and what to watch out for."
+
+## Runtime: Bun vs Node
+
+Bun is fast, has a built-in test runner, native TypeScript, and a sane package manager. Node is universal, battle-tested, and supported by every cloud platform without asterisks.
+
+- **Bun** for new internal services, scripts, monorepos where DX matters.
+- **Node** when the deployment target says "we run Node 20" and won't budge.
+
+Most code runs on either. Avoid Bun-only APIs unless you really mean it.
+
+## Frameworks
+
+- **Hono** — lightweight, edge-friendly, fantastic types. My default for small APIs.
+- **NestJS** — opinionated, batteries-included, great when a team needs guardrails. The DI system pays off on large codebases.
+- **Plain Bun/Node + a router** — perfect for one-endpoint webhooks.
+
+Pick framework weight to match team size and project lifetime, not the other way around.
+
+## Database: PostgreSQL
+
+It's 2025 and the answer is still PostgreSQL. JSONB when you want flexibility, real types when you don't, full-text search built in, extensions for everything else. Don't reach for MongoDB unless you have a reason a senior engineer can defend in a code review.
+
+## ORM: Prisma
+
+Prisma's schema-first model, generated client, and migrations are great for product velocity. Watch for:
+
+- N+1 queries — use `include` deliberately.
+- Long-running migrations on big tables — use raw SQL with `CREATE INDEX CONCURRENTLY`.
+- Connection pooling at scale — use `pgbouncer` or Prisma's own data proxy.
+
+For raw performance, drop to `sql` template tags. Prisma's escape hatch is good.
+
+## Containerization
+
+A backend service in 2025 should ship as a container. A `Dockerfile` and a `docker-compose.yml` for local dev mean a new contributor is productive in twenty minutes:
+
+```yaml
+services:
+  api:
+    build: .
+    env_file: .env
+    depends_on: [db]
+    ports: ["3000:3000"]
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_PASSWORD: dev
+    volumes: [pgdata:/var/lib/postgresql/data]
+volumes:
+  pgdata:
+```
+
+See [Docker for Embedded and IoT](/blog/docker-for-embedded-and-iot) for why I containerize even more aggressively on the device side.
+
+## Modular architecture
+
+Whether monorepo or polyrepo, the same principles:
+
+- **Bounded contexts** — each module owns its data and exposes a clean API.
+- **Shared types in one place** — generated from the schema where possible.
+- **Don't share databases across services.** Cross-service reads happen through APIs.
+
+Monorepo with Bun + workspaces gives you shared tooling and zero-friction refactors across packages. Worth it for most teams under ~15 engineers.
+
+## Practical workflow notes
+
+- Lint and format on save (`biome` or `eslint` + `prettier`).
+- Type-check in CI, not just at runtime.
+- Run a local DB via Docker, not a global install.
+- Pin Node/Bun version in `.nvmrc` / `package.json` `engines`.
+- Test the unhappy paths — those are the bugs that ship.
+
+## Summary
+
+The backend stack matters less than the discipline you bring to it. Bun + Hono + Prisma + Postgres + Docker is a great default for 2025, but the same project would ship on Node + Express + Knex. What stays constant: clear modules, typed boundaries, observable systems, and a workflow that respects the next engineer's time.
