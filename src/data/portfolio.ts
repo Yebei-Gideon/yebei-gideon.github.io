@@ -24,7 +24,7 @@ export const skills = [
   },
   {
     category: "Backend",
-    items: ["Node.js", "Bun", "Hono", "NestJS", "API design", "Distributed systems basics"],
+    items: ["Bun", "Hono", "NestJS", "API design", "Distributed systems basics"],
   },
   {
     category: "Database",
@@ -58,7 +58,7 @@ export const projects = [
       "Designed a layered architecture separating content, rendering, and editorial systems for long-term extensibility.",
     impact:
       "Foundation for a scalable, multi-product content ecosystem (blogging, editorial, community).",
-    stack: ["TypeScript", "Node.js", "PostgreSQL", "Modular architecture"],
+    stack: ["TypeScript", "Bun", "PostgreSQL", "Modular architecture"],
     featured: true,
     links: { github: "#", demo: "#" },
   },
@@ -86,7 +86,7 @@ export const projects = [
       "Designed automation pipelines with secure defaults, logging, and reproducibility.",
     impact:
       "Reduced operational risk while improving engineering velocity.",
-    stack: ["TypeScript", "Node.js", "Automation", "Security design"],
+    stack: ["TypeScript", "Bun", "Automation", "Security design"],
     featured: true,
     links: { github: "#", demo: "#" },
   },

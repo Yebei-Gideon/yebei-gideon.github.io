@@ -1,7 +1,7 @@
 ---
 title: "Notes on Backend Tooling for Engineers"
 slug: "notes-on-backend-tooling"
-description: "Bun, Node.js, Hono, NestJS, PostgreSQL, Prisma, Docker — a working engineer's take on a modern backend stack."
+description: "Bun, Hono, NestJS, PostgreSQL, Prisma, Docker — a working engineer's take on a modern backend stack."
 date: "2025-01-08"
 author: "Gideon Yebei"
 tags: ["APIs", "DevOps", "Architecture", "Docker"]
@@ -12,20 +12,17 @@ draft: false
 
 A few quick, opinionated notes on the backend stack I keep reaching for in 2025. Not a tutorial — more a "why these, when these, and what to watch out for."
 
-## Runtime: Bun vs Node
+## Runtime: Bun
 
-Bun is fast, has a built-in test runner, native TypeScript, and a sane package manager. Node is universal, battle-tested, and supported by every cloud platform without asterisks.
+Bun is fast, has a built-in test runner, native TypeScript, and a sane package manager. It is a strong default for new services, scripts, and monorepos where DX matters.
 
-- **Bun** for new internal services, scripts, monorepos where DX matters.
-- **Node** when the deployment target says "we run Node 20" and won't budge.
-
-Most code runs on either. Avoid Bun-only APIs unless you really mean it.
+Prefer Bun for new internal services, scripts, and monorepos where DX matters.
 
 ## Frameworks
 
 - **Hono** — lightweight, edge-friendly, fantastic types. My default for small APIs.
 - **NestJS** — opinionated, batteries-included, great when a team needs guardrails. The DI system pays off on large codebases.
-- **Plain Bun/Node + a router** — perfect for one-endpoint webhooks.
+- **Plain Bun + a router** — perfect for one-endpoint webhooks.
 
 Pick framework weight to match team size and project lifetime, not the other way around.
 
@@ -80,9 +77,9 @@ Monorepo with Bun + workspaces gives you shared tooling and zero-friction refact
 - Lint and format on save (`biome` or `eslint` + `prettier`).
 - Type-check in CI, not just at runtime.
 - Run a local DB via Docker, not a global install.
-- Pin Node/Bun version in `.nvmrc` / `package.json` `engines`.
+- Pin your Bun version in project tooling or CI.
 - Test the unhappy paths — those are the bugs that ship.
 
 ## Summary
 
-The backend stack matters less than the discipline you bring to it. Bun + Hono + Prisma + Postgres + Docker is a great default for 2025, but the same project would ship on Node + Express + Knex. What stays constant: clear modules, typed boundaries, observable systems, and a workflow that respects the next engineer's time.
+The backend stack matters less than the discipline you bring to it. Bun + Hono + Prisma + Postgres + Docker is a strong default for 2025. What stays constant: clear modules, typed boundaries, observable systems, and a workflow that respects the next engineer's time.

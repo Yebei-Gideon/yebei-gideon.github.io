@@ -96,16 +96,9 @@ The project is optimized for:
 
 ### Prerequisites
 
-- Node.js 18+ (recommended: latest LTS)
-- npm (or Bun if you prefer)
+- Bun 1.x
 
 ### Install
-
-```bash
-bun install
-```
-
-If you prefer Bun:
 
 ```bash
 bun install
@@ -281,7 +274,7 @@ Typical deployment flow for other static hosts:
 ### Dependency issues
 
 - Remove `node_modules` and reinstall.
-- Prefer a single package manager workflow (npm or Bun) for consistency.
+- Prefer a single package manager workflow with Bun for consistency.
 
 ## License
 
