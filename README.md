@@ -102,7 +102,7 @@ The project is optimized for:
 ### Install
 
 ```bash
-npm install
+bun install
 ```
 
 If you prefer Bun:
@@ -114,7 +114,7 @@ bun install
 ### Run Development Server
 
 ```bash
-npm run dev
+bun run dev
 ```
 
 Default dev server runs on port `8080`.
@@ -122,24 +122,24 @@ Default dev server runs on port `8080`.
 ### Build
 
 ```bash
-npm run build
+bun run build
 ```
 
 ### Preview Production Build
 
 ```bash
-npm run preview
+bun run preview
 ```
 
 ## Available Scripts
 
-- `npm run dev` - Start Vite dev server.
-- `npm run build` - Build production bundle.
-- `npm run build:dev` - Build using development mode.
-- `npm run preview` - Serve built app locally.
-- `npm run lint` - Run ESLint.
-- `npm run test` - Run Vitest once.
-- `npm run test:watch` - Run Vitest in watch mode.
+- `bun run dev` - Start Vite dev server.
+- `bun run build` - Build production bundle.
+- `bun run build:dev` - Build using development mode.
+- `bun run preview` - Serve built app locally.
+- `bun run lint` - Run ESLint.
+- `bun run test` - Run Vitest once.
+- `bun run test:watch` - Run Vitest in watch mode.
 
 ## Writing Blog Posts
 
@@ -220,7 +220,7 @@ Vitest is configured with jsdom and a setup file for browser API shims:
 Run tests:
 
 ```bash
-npm run test
+bun run test
 ```
 
 ## Linting
@@ -230,17 +230,40 @@ ESLint configuration is in `eslint.config.js`.
 Run lint:
 
 ```bash
-npm run lint
+bun run lint
 ```
 
 ## Deployment
 
 This is a static frontend app.
 
-Typical deployment flow:
+### GitHub Pages
 
-1. Build with `npm run build`.
-2. Deploy the `dist/` directory to your static host (GitHub Pages, Netlify, Vercel static, Cloudflare Pages, etc.).
+This repository includes a ready-to-use GitHub Pages workflow at `.github/workflows/deploy.yml`.
+
+How it works:
+
+1. Push to the `main` branch.
+2. GitHub Actions installs dependencies and runs `bun run build`.
+3. The generated `dist/` directory is published to GitHub Pages.
+
+To enable it in the repository settings:
+
+1. Open **Settings** > **Pages**.
+2. Set **Build and deployment** to **GitHub Actions**.
+3. Push to `main` or run the workflow manually from the **Actions** tab.
+
+The workflow uses Bun for installation and build steps.
+
+SPA routing notes:
+
+- `public/404.html` preserves deep links such as `/blog/my-post` by redirecting back into the app.
+- The router uses `basename={import.meta.env.BASE_URL}` so it stays aligned with the deployed base path.
+
+Typical deployment flow for other static hosts:
+
+1. Build with `bun run build`.
+2. Deploy the `dist/` directory to your static host.
 3. Ensure SPA fallback routing is configured if your host requires it.
 
 ## Troubleshooting
